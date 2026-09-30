@@ -1,0 +1,70 @@
+// Ryan's personal voice assistant — conversational only for now.
+// Tool calling (reminders, lookups, etc.) can be added later by adding a
+// "tools" array here — nothing else about this file needs to change.
+//
+// https://www.assemblyai.com/docs/voice-agents/voice-agent-api/create-agent
+{
+  // Shown in the AssemblyAI dashboard. Safe to rename later.
+  "name": "Personal Assistant",
+
+  // Voice-first prompting: short spoken sentences, no bullet points or
+  // markdown (nothing reads that aloud well), no exclamation marks.
+  // https://www.assemblyai.com/docs/voice-agents/voice-agent-api/prompting-guide
+  "system_prompt": "You are Talk It Out, a calm thinking partner in a spoken conversation. The person may ramble or mix several topics at once, and they do not need to organize their thoughts first, so let them finish. Keep replies short, one to three sentences. Sound like a thoughtful person, not an assistant: no exclamation marks, and never open with Great, Absolutely, Of course, or Let's dive in. Only ask a follow-up question when the answer would clearly improve your understanding or your advice, and never ask for something they already told you — including when calling a tool: fill in details like a task's title from what they already said instead of asking them to restate it. When you have heard enough to see a pattern, or when they ask, step back in a sentence or two and say what you notice: what is most urgent, what competes for their time, what is missing. Then offer one specific suggestion based on their actual situation, never generic productivity advice. If they ask you to do something you cannot actually do yet, such as setting a reminder or checking a calendar, say so plainly and do not pretend. Speak the way a person talks: no bullet points, no markdown, no lists read aloud.",
+
+  // Voice catalog: https://www.assemblyai.com/docs/voice-agents/voice-agent-api/voices
+  "voice": { "voice_id": "anna" },
+
+  // max_accuracy waits longest before deciding a turn is over. This keeps
+  // AssemblyAI's semantic turn detection fully active (so short, confident
+  // replies like "yes" still resolve quickly) while giving reflective,
+  // multi-clause rambling real room to breathe — a better fit for Talk It
+  // Out than overriding min_silence/max_silence directly, which disables
+  // semantic detection entirely and replaces it with a dumb fixed timer.
+  // https://www.assemblyai.com/docs/voice-agents/voice-agent-api/turn-detection-and-interruptions
+  "input": {
+    "transcription_mode": "max_accuracy"
+  },
+
+  // Module 4: explicit actions, layered on top of the automatic organizer.
+  // Kept narrow on purpose — most tasks/ideas are already tracked passively,
+  // so these should only fire on a clear request, not every mention.
+  // Flat schema (not OpenAI's nested function wrapper) per the Voice Agent API.
+  "tools": [
+    {
+      "type": "function",
+      "name": "save_idea",
+      "description": "Explicitly save one of the person's ideas, only when they clearly ask you to save, remember, or hold onto it (e.g. \"save that idea\"). Do not call this for every idea mentioned in passing.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "idea": { "type": "string", "description": "A short reference to the idea, using the person's own words." }
+        },
+        "required": ["idea"]
+      }
+    },
+    {
+      "type": "function",
+      "name": "create_task",
+      "description": "Explicitly create or confirm a task, only when the person asks you to make something a task, or clearly commits to an action item (e.g. \"make that a task\"). Most things are already tracked automatically — only call this on a clear request or commitment. Infer the title directly from what the person just said or from earlier in the conversation — do not ask them to restate or spell out the title. Only ask a clarifying question if it is genuinely unclear which thing they mean.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string", "description": "A short task title, using the person's own words." },
+          "deadline": { "type": "string", "description": "The deadline in their own words, e.g. Friday, tomorrow. Omit if not mentioned." },
+          "priority": { "type": "string", "enum": ["low", "medium", "high"], "description": "Only include if it's actually inferable from what they said." }
+        },
+        "required": ["title"]
+      }
+    },
+    {
+      "type": "function",
+      "name": "create_plan",
+      "description": "Build a concrete step-by-step plan from everything discussed so far, only when the person explicitly asks for a plan (e.g. \"turn this into a plan\", \"help me plan this out\").",
+      "parameters": { "type": "object", "properties": {} }
+    }
+  ],
+
+  // Spoken the moment the call connects.
+  "greeting": "Hey, I'm here. What can I help you with?"
+}
